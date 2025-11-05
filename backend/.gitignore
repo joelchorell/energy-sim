@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.env/
+*.db
+
+# FastAPI / build / misc
+*.log
+.DS_Store
+
+# Node / frontend
+node_modules/
+dist/
+build/
+*.lock
+
+# IDE
+.vscode/
+.idea/
