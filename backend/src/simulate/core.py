@@ -1,116 +1,145 @@
-from typing import Mapping
+from typing import Mapping, Optional, List, Sequence
 from simulate.regions import REGIONS
-from simulate.sources import ENERGY_SOURCES, SEASON_MODIFIERS
+from simulate.sources import ENERGY_SOURCES, SEASON_MODIFIERS, BATTERY_DEFAULTS
 from simulate.utils import mw_to_twh
+from simulate.models import SimulationResult, SimulationSummary, HourlyData
 
 
-def simulate_year(
+def _simulate(
     mix_percent: Mapping[str, float],
-    region: str = "northern_europe",
-    year_hours: int = 8760,
+    demand_profile: Sequence[float],
+    region: str,
+    hours: int,
+    seasonal: bool = True,
+    demand_modifier: Optional[List[float]] = None,
     verbose: bool = True,
-    debug: bool = False
-):
+) -> SimulationResult:
     """
-    Simulerar ett år (8760 timmar) med säsongsjusterad produktion och efterfrågan.
+    Core simulation engine used by both simulate_year() and simulate_day().
     """
 
-    # --- Grunddata ---
-    region_data = REGIONS.get(region)
-    if not region_data:
-        raise ValueError(f"Okänd region: {region}")
+    TOTAL_CAPACITY_MW = REGIONS.get(region, {}).get("total_capacity_mw", 1000)
+    installed = {s: (mix_percent.get(s, 0.0) / 100.0) * TOTAL_CAPACITY_MW for s in mix_percent}
 
-    demand_day = region_data["demand_profile"]
-    demand_modifier = region_data["demand_modifier"]
+    # Expand demand to match hours
+    days = hours // 24
+    demand = list(demand_profile) * days + list(demand_profile[: (hours % 24)])
 
-    TOTAL_CAPACITY_MW = region_data["total_capacity_mw"]
-    installed = {
-        s: (mix_percent.get(s, 0.0) / 100.0) * TOTAL_CAPACITY_MW
-        for s in mix_percent
-    }
+    # Battery setup
+    soc = 0.5 * BATTERY_DEFAULTS["capacity_mwh"]
+    capacity = BATTERY_DEFAULTS["capacity_mwh"]
+    charge_limit = BATTERY_DEFAULTS["max_charge_mw"]
+    discharge_limit = BATTERY_DEFAULTS["max_discharge_mw"]
+    eff = BATTERY_DEFAULTS["efficiency"]
 
-    # --- Skapa efterfrågekurva för hela året ---
-    days = year_hours // 24
-    demand = demand_day * days
-    remainder = year_hours % 24
-    if remainder:
-        demand += demand_day[:remainder]
+    # Data containers
+    total_generated = [0.0] * hours
+    battery_soc_list = [0.0] * hours
+    total_emissions_tonnes = 0.0
+    emissions_by_source = {s: 0.0 for s in ENERGY_SOURCES}
 
-    # --- Förbered tomma resultatlistor ---
-    production_by_source = {s: [0.0] * year_hours for s in ENERGY_SOURCES}
-    total_generated = [0.0] * year_hours
-
-    # --- Huvudloop: timme för timme ---
-    for hour in range(year_hours):
+    # --- Simulation loop ---
+    for hour in range(hours):
         hour_of_day = hour % 24
-        month = min(11, hour // 720)  # 720 = 30 dagar * 24 timmar
-        demand[hour] *= demand_modifier[month]
+        month = min(11, hour // 720) if seasonal else 6
+
+        if seasonal and demand_modifier:
+            demand[hour] *= demand_modifier[month]
 
         for source, data in ENERGY_SOURCES.items():
             cf = data["cf"][hour_of_day]
-            season_factor = SEASON_MODIFIERS[source][month]
-            effective_cf = cf * season_factor
-            produced = installed.get(source, 0.0) * effective_cf
-            production_by_source[source][hour] = produced
+            season_factor = SEASON_MODIFIERS[source][month] if seasonal else 1.0
+            produced = installed.get(source, 0.0) * cf * season_factor
             total_generated[hour] += produced
 
-    # --- Balans och summering ---
-    balance = [total_generated[h] - demand[h] for h in range(year_hours)]
+            emission_factor = data.get("emission_factor", 0.0)
+            emissions_tonnes = produced * emission_factor / 1e3  # gCO₂ → tonnes
+            total_emissions_tonnes += emissions_tonnes
+            emissions_by_source[source] += emissions_tonnes
+
+        net = total_generated[hour] - demand[hour]
+        if net > 0:
+            charge = min(net, charge_limit, capacity - soc)
+            soc += charge * eff
+        elif net < 0:
+            discharge = min(-net, discharge_limit, soc)
+            soc -= discharge / eff
+            total_generated[hour] += discharge
+
+        battery_soc_list[hour] = (soc / capacity) * 100
+
+    # --- Summaries ---
+    balance = [total_generated[h] - demand[h] for h in range(hours)]
     surplus = [max(0, b) for b in balance]
     unmet = [max(0, -b) for b in balance]
 
-    result = {
-        "total_surplus_twh": mw_to_twh(sum(surplus)),
-        "total_unmet_twh": mw_to_twh(sum(unmet)),
-        "hours_unmet": sum(1 for u in unmet if u > 0),
-        "max_unmet_mw": max(unmet),
-        "max_surplus_mw": max(surplus),
-        "region": region,
-    }
+    summary = SimulationSummary(
+        region=region,
+        total_surplus_twh=mw_to_twh(sum(surplus)),
+        total_unmet_twh=mw_to_twh(sum(unmet)),
+        total_emissions_tonnes=total_emissions_tonnes,
+        avg_emission_intensity=total_emissions_tonnes / (mw_to_twh(sum(total_generated)) * 1e6),
+        hours_unmet=sum(1 for u in unmet if u > 0),
+        max_unmet_mw=max(unmet),
+        max_surplus_mw=max(surplus),
+    )
 
-    # --- Verbositet: översikt ---
-    if verbose:
-        print(f"\nRegion: {region}")
-        print(f"Totalt överskott: {result['total_surplus_twh']:.2f} TWh")
-        print(f"Totalt underskott: {result['total_unmet_twh']:.2f} TWh")
-        print(f"Max underskott: {result['max_unmet_mw']:.1f} MW")
-        print(f"Max överskott: {result['max_surplus_mw']:.1f} MW")
+    hourly = HourlyData(
+        demand_mw=demand,
+        total_generation_mw=total_generated,
+        battery_soc=battery_soc_list,
+    )
 
-    # --- Debug/inspektion av exempeldata ---
-    if debug:
-        sample_hours = {
-            "January": range(0, 24),
-            "Juli": range(24 * 24 * 6, 24 * 24 * 6 + 24),
-            "December": range(24 * 24 * 11, 24 * 24 * 11 + 24),
-        }
-
-        print("\n=== Example data ===")
-        for month_name, hours in sample_hours.items():
-            print(f"\n{month_name.upper()}")
-            print("Hour | Demand | Solar | Wind | Nuclear | Hydro | Total")
-            print("------------------------------------------------------------")
-            for h in hours:
-                print(
-                    f"{h:5d} | {demand[h]:7.1f} | "
-                    f"{production_by_source['solar'][h]:6.1f} | "
-                    f"{production_by_source['wind'][h]:6.1f} | "
-                    f"{production_by_source['nuclear'][h]:7.1f} | "
-                    f"{production_by_source['hydro'][h]:6.1f} | "
-                    f"{total_generated[h]:6.1f}"
-                )
-
-    return result
+    return SimulationResult(
+        **summary.dict(),
+        emissions_by_source_tonnes=emissions_by_source,
+        hourly_data=hourly,
+    )
 
 
-# --- Lokal körning ---
+def simulate_year(mix_percent: Mapping[str, float], region: str = "northern_europe", verbose: bool = False) -> SimulationResult:
+    region_data = REGIONS.get(region)
+    if not region_data:
+        raise ValueError(f"Unknown region: {region}")
+
+    return _simulate(
+        mix_percent=mix_percent,
+        demand_profile=region_data["demand_profile"],
+        demand_modifier=region_data["demand_modifier"],
+        region=region,
+        hours=8760,
+        seasonal=True,
+        verbose=verbose,
+    )
+
+
+def simulate_day(mix_percent: Mapping[str, float], mode: str = "challenge", verbose: bool = False) -> SimulationResult:
+    CHALLENGE_DAY = [
+        40, 38, 36, 35, 37, 45, 70, 90, 85, 60, 50, 45,
+        48, 55, 60, 80, 100, 110, 95, 80, 70, 60, 50, 45,
+    ]
+
+    DEFAULT_DAY = [
+        30, 28, 27, 26, 25, 30, 40, 50, 55, 60, 62, 64,
+        65, 66, 68, 70, 75, 80, 78, 70, 60, 50, 40, 35,
+    ]
+
+    demand = CHALLENGE_DAY if mode == "challenge" else DEFAULT_DAY
+
+    return _simulate(
+        mix_percent=mix_percent,
+        demand_profile=demand,
+        region="generic_day",
+        hours=24,
+        seasonal=False,
+        verbose=verbose,
+    )
+
+
 if __name__ == "__main__":
-    mix = {"solar": 20, "wind": 30, "nuclear": 40, "hydro": 10}
-    result = simulate_year(mix, region="northern_europe", verbose=True, debug=True)
+    mix = {"solar": 10, "wind": 25, "nuclear": 25, "hydro": 10, "gas": 15, "coal": 10, "oil": 5}
 
-    print("\n=== RESULT ===")
-    print(f"Region: {result['region']}")
-    print(f"Total surplus (TWh): {result['total_surplus_twh']:.2f}")
-    print(f"Total unmet demand (TWh): {result['total_unmet_twh']:.2f}")
-    print(f"Hours with unmet demand: {result['hours_unmet']}")
-    print(f"Max unmet demant (MW): {result['max_unmet_mw']:.1f}")
-    print(f"Max surplus (MW): {result['max_surplus_mw']:.1f}")
+    print("\n=== TEST: FULL YEAR ===")
+    res = simulate_year(mix, region="northern_europe", verbose=True)
+    print(f"Total emissions: {res.total_emissions_tonnes:.0f} tCO₂")
+    print(f"Per source: {res.emissions_by_source_tonnes}")
