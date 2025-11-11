@@ -59,7 +59,7 @@ class SimulationInput(BaseModel):
             self.solar + self.wind + self.nuclear +
             self.hydro + self.gas + self.coal + self.oil
         )
-        if round(total, 2) != 100.0:
+        if not 99.9 <= total <= 100.1:
             raise ValueError(f"Total mix must equal exactly 100% (got {total:.1f}%)")
         if self.region not in REGIONS:
             raise ValueError(f"Unknown region: {self.region}")
@@ -84,6 +84,7 @@ def run_simulation(data: SimulationInput):
             "status": "success",
             "region": data.region,
             "input_mix": mix,
+            "simulation_mode": "year",
             "result": result,
         }
     except ValueError as e:
