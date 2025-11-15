@@ -1,18 +1,36 @@
 import { Box } from "@mui/material";
 
-export default function MainLayout({ left, right }) {
+interface Props {
+  left: React.ReactNode;
+  right: React.ReactNode;
+}
+
+export default function MainLayout({ left, right }: Props) {
   return (
-    <Box sx={{ display: "flex", height: "100vh" }}>
-      <Box sx={{
-        width: 320,
-        p: 3,
-        borderRight: "1px solid #eee",
-        background: "#fafafa"
-      }}>
+    <Box sx={{ display: "flex", height: "100vh", width: "100vw" }}>
+      {/* LEFT PANEL */}
+      <Box
+        sx={{
+          width: 360,
+          flexShrink: 0,
+          bgcolor: "background.paper",
+          borderRight: "1px solid rgba(255,255,255,0.1)",
+          p: 3,
+          overflowY: "auto",
+        }}
+      >
         {left}
       </Box>
 
-      <Box sx={{ flexGrow: 1, p: 3 }}>
+      {/* RIGHT PANEL */}
+      <Box
+        sx={{
+          flex: 1,
+          p: 4,
+          overflowY: "auto",
+          bgcolor: "background.default",
+        }}
+      >
         {right}
       </Box>
     </Box>
