@@ -1,40 +1,47 @@
+
+import React, { useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import TabsWrapper from "../../components/layout/TabsWrapper";
 import IntroPanel from "../../components/intro/IntroPanel";
 import EnergyMixPanel from "../../pages/simulator/EnergyMixPanel";
 import { useSimulator } from "../../context/SimulatorContext";
-import { Button, Box } from "@mui/material";
+import { Box } from "@mui/material";
+import OverviewOverlay from "../../components/overview/OverviewOverlay.tsx"
 
-export default function SimulatorPage({ goBack }: { goBack?: () => void }) {
+export default function SimulatorPage() {
   const { setMix } = useSimulator();
+  const [tab, setTab] = useState(0);
+
+  // Right panel layouts
+const rightPanel = tab === 0 ? (
+  <OverviewOverlay />
+) : (
+  <Box>
+    {/* Simulator layout */}
+    <div>Graphs + Grid Stress here</div>
+  </Box>
+);
 
   return (
     <MainLayout
       left={
-        <TabsWrapper
-          intro={<IntroPanel />}
-          simulator={
-            <EnergyMixPanel
-              onSimulate={(m) => {
-                // persist selected mix to global context and trigger any side effects
-                setMix && setMix(m);
-                console.log("simulate:", m);
-              }}
-            />
-          }
-        />
-      }
-      right={
-        <Box>
-          <Box sx={{ mb: 2 }}>
-            <Button variant="outlined" onClick={() => goBack && goBack()}>
-              Back
-            </Button>
-          </Box>
-
-          <div>Graphs + Grid Stress here</div>
+        <Box sx={{ height: "100%" }}>
+          <TabsWrapper
+            intro={<IntroPanel />}
+            simulator={
+              <EnergyMixPanel
+                onSimulate={(m) => {
+                  setMix && setMix(m);
+                  console.log("simulate:", m);
+                }}
+              />
+            }
+            tab={tab}
+            setTab={setTab}
+          />
         </Box>
       }
+      right={rightPanel}
     />
   );
 }

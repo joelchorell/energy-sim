@@ -28,6 +28,7 @@ export default function MainLayout({ left, right }: Props) {
           flex: 1,
           p: 4,
           overflowY: "auto",
+          position: "relative",
           bgcolor: "background.default",
         }}
       >

@@ -1,22 +1,24 @@
 import { Box, Tabs, Tab } from "@mui/material";
 import type { ReactNode } from "react";
-import { useState } from "react";
 
 export default function TabsWrapper({
   intro,
   simulator,
+  tab,
+  setTab,
 }: {
   intro: ReactNode;
   simulator: ReactNode;
+  tab: number;
+  setTab: (tab: number) => void;
 }) {
-  const [tab, setTab] = useState(0);
 
   return (
     <Box sx={{ width: "100%", height: "100%" }}>
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
-        sx={{ borderBottom: "1px solid #eee", mb: 2 }}
+        centered
       >
         <Tab label="Overview" />
         <Tab label="Simulator" />
