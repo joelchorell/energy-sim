@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Typography, Slider, Button, Stack, Switch, TextField } from "@mui/material";
-import { useSimulator } from "../../context/SimulatorContext";
+import { useSimulator } from "../context/SimulatorContext";
 
 
 type EnergyMix = {

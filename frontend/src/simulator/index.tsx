@@ -1,12 +1,12 @@
 import { useState } from "react";
-import MainLayout from "../../components/layout/MainLayout";
-import TabsWrapper from "../../components/layout/TabsWrapper";
-import IntroPanel from "../../components/intro/IntroPanel";
-import EnergyMixPanel from "../../pages/simulator/EnergyMixPanel";
-import { useSimulator } from "../../context/SimulatorContext";
+import MainLayout from "../components/layout/MainLayout";
+import TabsWrapper from "../components/layout/TabsWrapper";
+import IntroPanel from "../components/intro/IntroPanel";
+import EnergyMixPanel from "./EnergyMixPanel";
+import { useSimulator } from "../context/SimulatorContext";
 import { Box } from "@mui/material";
 import {  motion } from "framer-motion";
-import OverviewOverlay from "../../components/overview/OverviewOverlay";
+import OverviewOverlay from "../components/overview/OverviewOverlay";
 // ❗ OBS – du måste ha en komponent för simulatorn här:
 const SimulatorRightPanel = () => (
   <Box sx={{ height: "100%", width: "100%", p: 2 }}>

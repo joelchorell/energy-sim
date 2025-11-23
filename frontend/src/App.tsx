@@ -1,5 +1,5 @@
-import AppRouter from "./router/AppRouter.tsx";
+import SimulatorPage from "./simulator/";
 
 export default function App() {
-  return <AppRouter />;
+  return <SimulatorPage />;
 }
