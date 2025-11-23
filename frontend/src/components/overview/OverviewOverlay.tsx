@@ -1,7 +1,7 @@
 import { Box, Typography, Chip } from "@mui/material";
 import { motion } from "framer-motion";
 import type { ReactElement } from "react";
-import GlowCurve from "./GlowCurve";
+import ChipLines from "./ChipLines";
 
 export default function OverviewOverlay(): ReactElement {
   return (
@@ -15,8 +15,9 @@ export default function OverviewOverlay(): ReactElement {
   }}
 >
       <NeonOrbs />
-      <GlowCurve />
+      <ChipLines />
       <ParticleLayer />
+      <CornerAurora />
       <CenterContent />
     </Box>
   );
@@ -193,5 +194,39 @@ function CenterContent() {
         }}
       />
     </Box>
+  );
+}
+
+function CornerAurora() {
+  return (
+    <Box
+      component={motion.div}
+      initial={{ opacity: 0.15, scale: 1, x: 0, y: 0 }}
+      animate={{
+        opacity: [0.12, 0.22, 0.14],
+        scale: [1, 1.05, 1],
+        x: [0, -20, 0],
+        y: [0, -12, 0],
+      }}
+      transition={{
+        duration: 18,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+      sx={{
+        position: "absolute",
+        right: "-10%",
+        bottom: "-12%",
+        width: "60%",
+        height: "60%",
+        borderRadius: "50%",
+        background:
+          "radial-gradient(circle at 60% 40%, rgba(255,180,80,0.55) 0%, rgba(255,120,60,0.22) 40%, rgba(255,80,20,0.05) 75%, transparent 100%)",
+        filter: "blur(60px)",
+        pointerEvents: "none",
+        zIndex: 1,
+        mixBlendMode: "screen",
+      }}
+    />
   );
 }

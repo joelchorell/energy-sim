@@ -26,13 +26,22 @@ export default function MainLayout({ left, right }: Props) {
       <Box
         sx={{
           flex: 1,
-          p: 4,
-          overflowY: "auto",
           position: "relative",
           bgcolor: "background.default",
+          overflow: "hidden",   // IMPORTANT
         }}
       >
-        {right}
+        {/* Scrollable content wrapper */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            overflowY: "hidden",
+            p: 0,
+          }}
+        >
+          {right}
+        </Box>
       </Box>
     </Box>
   );
