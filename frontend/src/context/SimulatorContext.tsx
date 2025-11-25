@@ -1,42 +1,47 @@
-import { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 
-type EnergyMix = {
-  solar: number;
-  wind: number;
-  nuclear: number;
-  hydro: number;
-  gas: number;
-  coal: number;
-  oil: number;
-};
+export interface SimulationResult {
+  region: string;
+  total_surplus_twh: number;
+  total_unmet_twh: number;
+  total_emissions_tonnes: number;
+  avg_emission_intensity: number;
+  hours_unmet: number;
+  max_unmet_mw: number;
+  max_surplus_mw: number;
+  hourly_data: {
+    demand_mw: number[];
+    total_generation_mw: number[];
+    battery_soc: number[];
+  };
+}
 
-type SimulatorContextType = {
-  mix: EnergyMix;
-  setMix: (m: EnergyMix) => void;
-};
+interface SimulatorContextType {
+  mix: Record<string, number>;
+  setMix: (m: Record<string, number>) => void;
 
-const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined);
+  result: SimulationResult | null;
+  setResult: (r: SimulationResult | null) => void;
+}
+
+const SimulatorContext = createContext<SimulatorContextType>({
+  mix: {},
+  setMix: () => {},
+  result: null,
+  setResult: () => {},
+});
 
 export function SimulatorProvider({ children }: { children: React.ReactNode }) {
-  const [mix, setMix] = useState<EnergyMix>({
-    solar: 20,
-    wind: 25,
-    nuclear: 30,
-    hydro: 15,
-    gas: 5,
-    coal: 3,
-    oil: 2,
-  });
+  const [mix, setMix] = useState<Record<string, number>>({});
+  const [result, setResult] = useState<SimulationResult | null>(null);
 
   return (
-    <SimulatorContext.Provider value={{ mix, setMix }}>
+    <SimulatorContext.Provider value={{ mix, setMix, result, setResult }}>
       {children}
     </SimulatorContext.Provider>
   );
 }
 
 export function useSimulator() {
-  const ctx = useContext(SimulatorContext);
-  if (!ctx) throw new Error("useSimulator must be used within SimulatorProvider");
-  return ctx;
+  return useContext(SimulatorContext);
 }

@@ -1,18 +1,13 @@
 import { useState } from "react";
-import MainLayout from "../components/layout/MainLayout";
-import TabsWrapper from "../components/layout/TabsWrapper";
+import MainLayout from "../layout/MainLayout";
+import TabsWrapper from "../layout/TabsWrapper";
+import SimulatorRightPanel from "../simulator/SimulatorRightPanel";
 import IntroPanel from "../components/intro/IntroPanel";
 import EnergyMixPanel from "./EnergyMixPanel";
 import { useSimulator } from "../context/SimulatorContext";
 import { Box } from "@mui/material";
 import {  motion } from "framer-motion";
 import OverviewOverlay from "../components/overview/OverviewOverlay";
-// ❗ OBS – du måste ha en komponent för simulatorn här:
-const SimulatorRightPanel = () => (
-  <Box sx={{ height: "100%", width: "100%", p: 2 }}>
-    <div>Graphs + Grid Stress here</div>
-  </Box>
-);
 
 export default function SimulatorPage() {
   const { setMix } = useSimulator();

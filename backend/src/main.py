@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 from simulate.core import simulate_year
 from simulate.regions import REGIONS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Swagger / Metadata ---
 app = FastAPI(
@@ -24,6 +25,14 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],     # Utvecklingsläge, helt öppet
+    allow_credentials=True,
+    allow_methods=["*"],     # Tillåt POST, GET, OPTIONS, allt
+    allow_headers=["*"],
 )
 
 # --- Global exception handling ---

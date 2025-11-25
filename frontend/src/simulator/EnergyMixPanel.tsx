@@ -1,173 +1,85 @@
-import { useMemo, useState } from "react";
-import { Box, Typography, Slider, Button, Stack, Switch, TextField } from "@mui/material";
+import { useState } from "react";
+import { Box, Button, Typography } from "@mui/material";
+import axios from "axios";
 import { useSimulator } from "../context/SimulatorContext";
+import EnergyRow from "./EnergyRow";
 
+export default function EnergyMixPanel({
+  onSimulate,
+}: {
+  onSimulate?: (mix: Record<string, number>) => void;
+}) {
+  const { setMix, setResult } = useSimulator();
 
-type EnergyMix = {
-  solar: number;
-  wind: number;
-  nuclear: number;
-  hydro: number;
-  gas: number;
-  coal: number;
-  oil: number;
-};
+  // All sliders
+  const [solar, setSolar] = useState(20);
+  const [wind, setWind] = useState(20);
+  const [nuclear, setNuclear] = useState(20);
+  const [hydro, setHydro] = useState(20);
+  const [gas, setGas] = useState(20);
+  const [coal, setCoal] = useState(0);
+  const [oil, setOil] = useState(0);
 
-export default function EnergyMixPanel({ onSimulate }: { onSimulate: (mix: EnergyMix) => void }) {
-  const { mix, setMix } = useSimulator();
-  const [enabled, setEnabled] = useState<Record<keyof EnergyMix, boolean>>({
-    solar: mix.solar > 0,
-    wind: mix.wind > 0,
-    nuclear: mix.nuclear > 0,
-    hydro: mix.hydro > 0,
-    gas: mix.gas > 0,
-    coal: mix.coal > 0,
-    oil: mix.oil > 0,
-  });
-  const [prevValue, setPrevValue] = useState<Record<keyof EnergyMix, number>>({
-    solar: mix.solar || 20,
-    wind: mix.wind || 20,
-    nuclear: mix.nuclear || 20,
-    hydro: mix.hydro || 20,
-    gas: mix.gas || 10,
-    coal: mix.coal || 5,
-    oil: mix.oil || 5,
-  });
+  const total =
+    solar + wind + nuclear + hydro + gas + coal + oil;
 
-  const total = useMemo(() => {
-    return Object.values(mix).reduce((sum, v) => sum + v, 0);
-  }, [mix]);
-  const isValid = total === 100;
-  const handleChange = (key: keyof EnergyMix, value: number) => {
-    setMix({ ...mix, [key]: value });
-    if (value > 0) {
-      setEnabled((e) => ({ ...e, [key]: true }));
-      setPrevValue((p) => ({ ...p, [key]: value }));
+  const handleSimulate = async () => {
+    const mix = { solar, wind, nuclear, hydro, gas, coal, oil };
+
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/simulate", {
+        ...mix,
+        region: "northern_europe",
+        verbose: false,
+      });
+
+      setMix(mix);
+      setResult(res.data.result);
+
+      onSimulate && onSimulate(mix);
+    } catch (err) {
+      console.error("Simulation failed:", err);
     }
   };
-  const energySources: { key: keyof EnergyMix; label: string }[] = [
-    { key: "solar", label: "Solar" },
-    { key: "wind", label: "Wind" },
-    { key: "nuclear", label: "Nuclear" },
-    { key: "hydro", label: "Hydro" },
-    { key: "gas", label: "Gas" },
-    { key: "coal", label: "Coal" },
-    { key: "oil", label: "Oil" },
-  ];
-  const meterBg = total === 100 ? "rgba(0,180,0,0.08)" : total < 100 ? "rgba(52,152,219,0.06)" : "rgba(255,0,0,0.08)";
-  const meterBorder = total === 100 ? "#2ecc71" : total < 100 ? "#3498db" : "#e74c3c";
-  const meterColor = total === 100 ? "#2ecc71" : total < 100 ? "#3498db" : "#e74c3c";
+
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Energy Mix
+    <Box>
+      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+        Energy Mix (%)
       </Typography>
-      <Stack spacing={3}>
-        {energySources.map(({ key, label }) => (
-          <Box
-            key={key}
-            sx={{
-              p: 2,
-              mb: 2,
-              borderRadius: 1,
-              bgcolor: "background.paper",
-              border: "1px solid rgba(0,0,0,0.06)",
-              overflow: "hidden",
-            }}
-          >
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                <Typography sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</Typography>
-                <Switch
-                  size="small"
-                  checked={enabled[key]}
-                  onChange={() => {
-                    const isOn = enabled[key];
-                    if (isOn) {
-                      setPrevValue((p) => ({ ...p, [key]: mix[key] }));
-                      setEnabled((e) => ({ ...e, [key]: false }));
-                      setMix({ ...mix, [key]: 0 });
-                    } else {
-                      const restored = prevValue[key] ?? 10;
-                      setEnabled((e) => ({ ...e, [key]: true }));
-                      setMix({ ...mix, [key]: restored });
-                    }
-                  }}
-                />
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <TextField
-                  size="small"
-                  type="number"
-                  value={mix[key]}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (Number.isNaN(v)) return;
-                    const clamped = Math.max(0, Math.min(100, Math.round(v)));
-                    handleChange(key, clamped);
-                  }}
-                  inputProps={{ min: 0, max: 100, step: 1 }}
-                  sx={{
-                    width: 52.8,
-                    '& .MuiInputBase-input': { textAlign: 'right', paddingRight: 0 },
-                  }}
-                  disabled={!enabled[key]}
-                />
-                <Typography sx={{ fontWeight: 600 }}>{"%"}</Typography>
-              </Box>
-            </Box>
-            <Box sx={{ mt: 1 }}>
-              <Slider
-                value={mix[key]}
-                onChange={(_, v) => handleChange(key, v as number)}
-                min={0}
-                max={100}
-                step={1}
-                disabled={!enabled[key]}
-                sx={{ width: "100%" }}
-              />
-            </Box>
-          </Box>
-        ))}
-        <Box
-          sx={{
-            mt: 2,
-            p: 1.5,
-            borderRadius: 1,
-            bgcolor: meterBg,
-            border: `1px solid ${meterBorder}`,
-            textAlign: "center",
-          }}
-        >
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 600,
-              color: meterColor,
-            }}
-          >
-            Total: {total}%
-          </Typography>
-          {total !== 100 && (
-            <Typography variant="caption" sx={{ color: meterColor }}>
-              Total must be exactly 100%
-            </Typography>
-          )}
-        </Box>
-        <Button
-          variant="contained"
-          disabled={!isValid}
-          onClick={() => onSimulate(mix)}
-          sx={{
-            mt: 1,
-            py: 1.2,
-            fontWeight: 600,
-            letterSpacing: "0.5px",
-          }}
-        >
-          Simulate
-        </Button>
-      </Stack>
+
+      {/* Energy input rows */}
+      <EnergyRow label="Solar" value={solar} onChange={setSolar} />
+      <EnergyRow label="Wind" value={wind} onChange={setWind} />
+      <EnergyRow label="Nuclear" value={nuclear} onChange={setNuclear} />
+      <EnergyRow label="Hydro" value={hydro} onChange={setHydro} />
+      <EnergyRow label="Gas" value={gas} onChange={setGas} />
+      <EnergyRow label="Coal" value={coal} onChange={setCoal} />
+      <EnergyRow label="Oil" value={oil} onChange={setOil} />
+
+      {/* TOTAL */}
+      <Typography
+        sx={{
+          mt: 2,
+          mb: 2,
+          fontWeight: 700,
+          fontSize: 16,
+          color: total === 100 ? "#90ee90" : "#ffb04d",
+        }}
+      >
+        Total: {total}%
+      </Typography>
+
+      {/* Button */}
+      <Button
+        variant="contained"
+        fullWidth
+        disabled={total !== 100}
+        onClick={handleSimulate}
+        sx={{ mt: 1 }}
+      >
+        Simulate
+      </Button>
     </Box>
   );
 }
