@@ -1,4 +1,5 @@
-import { useEffect, useState, KeyboardEvent, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { Box, Slider, TextField, Typography } from "@mui/material";
 
 interface Props {
